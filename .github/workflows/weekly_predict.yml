@@ -1,0 +1,92 @@
+# .github/workflows/weekly_predict.yml
+# ---------------------------------------------------------------
+# Runs every Tuesday at 9 AM ET (13:00 UTC) during MLB season.
+# Also supports manual runs via workflow_dispatch.
+#
+# What it does:
+#   1. Sets up Python + venv
+#   2. Runs src/predict_awards.py
+#   3. Commits updated CSVs back to the repo
+#   4. Optionally uploads CSVs as workflow artifacts
+#
+# Secrets required (set in repo Settings → Secrets → Actions):
+#   None required for basic operation.
+#   Add GOOGLE_SHEETS_KEY if you later automate Sheet uploads.
+# ---------------------------------------------------------------
+
+name: Weekly MLB Awards Prediction
+
+on:
+  schedule:
+    # Every Tuesday at 9:00 AM ET (13:00 UTC)
+    # Adjust cron if you prefer a different day/time
+    - cron: '0 13 * * 1'
+
+  # Manual trigger — run anytime from Actions tab
+  workflow_dispatch:
+    inputs:
+      year:
+        description: 'Season year (default: current)'
+        required: false
+        default: '2026'
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need full history so git push works cleanly
+          fetch-depth: 0
+
+      # ── 2. Set up Python ──────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # ── 3. Install dependencies ───────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 4. Run prediction script ──────────────────────────────
+      - name: Run weekly prediction
+        run: |
+          python src/predict_awards.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      # ── 5. Upload CSVs as artifacts (viewable in Actions UI) ──
+      - name: Upload prediction artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlb-predictions-${{ github.run_number }}
+          path: |
+            predictions/**/*.csv
+          retention-days: 90
+          if-no-files-found: warn
+
+      # ── 6. Commit updated CSVs back to repo ───────────────────
+      - name: Commit updated predictions
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage only the prediction CSVs and prev snapshots
+          git add predictions/
+          git add -f predictions/**/.prev_top10_*.csv 2>/dev/null || true
+
+          # Only commit if something actually changed
+          if git diff --staged --quiet; then
+            echo "No prediction changes to commit."
+          else
+            TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+            git commit -m "chore: weekly predictions update ${TIMESTAMP} [skip ci]"
+            git push
+          fi
