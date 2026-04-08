@@ -25,7 +25,7 @@ import warnings; warnings.filterwarnings("ignore")
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-import json, urllib.request
+import json, re, urllib.request
 import requests
 import pandas as pd
 import numpy as np
@@ -488,8 +488,22 @@ def score(df, model, feats, col):
     out = df.copy(); out[col] = model.predict_proba(X)[:,1]; return out
 
 
+def _player_key(name: str, team: str) -> str:
+    """Stable slug for Sheets lookups: firstname_lastname_team (all lowercase).
+    e.g. 'Aaron Judge', 'NYY'        → 'aaron_judge_nyy'
+         'Jazz Chisholm Jr.', 'NYY'  → 'jazz_chisholm_jr_nyy'
+         'José Ramírez', 'CLE'       → 'jose_ramirez_cle'
+    """
+    import unicodedata
+    # Decompose accented chars (é → e + combining accent) then drop non-ASCII
+    normalized = unicodedata.normalize("NFD", name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "_", ascii_name.lower()).strip("_")
+    return f"{slug}_{team.lower()}"
+
+
 def top10(df, prob, stats):
-    base_cols = ["Name", "Team", "lgID"]
+    base_cols = ["mlbam_id", "Name", "Team", "lgID"]
     keep = [c for c in base_cols + [prob] + stats if c in df.columns]
     r = df[keep].dropna(subset=["lgID"]).copy()
     r = r[r["lgID"].isin(["AL", "NL"])]
@@ -500,6 +514,8 @@ def top10(df, prob, stats):
                .head(10)
                .copy())
         sub["rank"] = range(1, len(sub) + 1)
+        sub.insert(0, "player_key", sub.apply(
+            lambda r: _player_key(r["Name"], r["Team"]), axis=1))
         frames.append(sub)
     return pd.concat(frames, ignore_index=True)
 
