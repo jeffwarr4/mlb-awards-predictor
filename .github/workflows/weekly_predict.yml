@@ -55,7 +55,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+        
       # ── 4. Run prediction script ──────────────────────────────
+      - name: Debug file structure
+        run: |
+          echo "Working directory:"
+          pwd
+          echo "Root contents:"
+          ls -la
+          echo "src/ contents:"
+          ls -la src/
       - name: Run weekly prediction
         run: |
           python src/predict_awards.py
