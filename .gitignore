@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+
+# Local data inputs
+data/
+
+# Model binaries — large files, not tracked
+models/
+
+# Prediction archives and prev-run snapshots (keep _latest.csv and flat CSVs)
+predictions/**/*_2[0-9][0-9][0-9][0-9]_*.csv
+predictions/**/.prev_*.csv
