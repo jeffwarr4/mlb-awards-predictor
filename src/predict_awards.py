@@ -25,7 +25,9 @@ import warnings; warnings.filterwarnings("ignore")
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(r"C:\Users\jeffw\OneDrive\DevProj\stinger-assets")))
+_stinger = Path(r"C:\Users\jeffw\OneDrive\DevProj\stinger-assets")
+if _stinger.exists():
+    sys.path.insert(0, str(_stinger))
 import json, re, urllib.request
 import requests
 import pandas as pd
@@ -489,6 +491,16 @@ def score(df, model, feats, col):
     out = df.copy(); out[col] = model.predict_proba(X)[:,1]; return out
 
 
+def _headshot_key(name: str) -> str:
+    """Filename slug for stinger-assets: firstname_lastname (no team, no accents).
+    Must match safe_filename() in sync_espn_headshots.py.
+    e.g. 'José Ramírez' → 'jose_ramirez',  'Jazz Chisholm Jr.' → 'jazz_chisholm_jr'
+    """
+    import unicodedata as _ud
+    n = _ud.normalize("NFD", name).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", n.lower())).strip("_")
+
+
 def _player_key(name: str, team: str) -> str:
     """Stable slug for Sheets lookups: firstname_lastname_team (all lowercase).
     e.g. 'Aaron Judge', 'NYY'        → 'aaron_judge_nyy'
@@ -621,6 +633,19 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
     build_flat(t10_cy,  CY_CANVA_COLS).to_csv(outdir/"top5_flat_cy.csv",  index=False)
     saved["flat_mvp"] = str(outdir/"top5_flat_mvp.csv")
     saved["flat_cy"]  = str(outdir/"top5_flat_cy.csv")
+
+    # Headshot candidates — stable path fetched weekly by stinger-assets workflow
+    candidates_path = Path("predictions/mlb_candidates.csv")
+    seen: set[str] = set()
+    rows = []
+    for name in dict.fromkeys(t10_mvp["Name"].tolist() + t10_cy["Name"].tolist()):
+        key = _headshot_key(name)
+        if key not in seen:
+            rows.append({"sport": "MLB", "player_name": name, "player_key": key})
+            seen.add(key)
+    pd.DataFrame(rows).to_csv(candidates_path, index=False)
+    saved["mlb_candidates"] = str(candidates_path)
+    print(f"  Headshot candidates → {candidates_path} ({len(rows)} players)")
 
     print(f"\n✅  All outputs → {outdir.resolve()}")
     return saved
