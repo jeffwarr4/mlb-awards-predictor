@@ -25,6 +25,7 @@ import warnings; warnings.filterwarnings("ignore")
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(r"C:\Users\jeffw\OneDrive\DevProj\stinger-assets")))
 import json, re, urllib.request
 import requests
 import pandas as pd
@@ -577,6 +578,17 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
 
     t10_mvp = add_movement(top10(score(cur_mvp,mm,mf,"MVP_prob"),"MVP_prob",MVP_STAT_COLS), prev_mvp)
     t10_cy  = add_movement(top10(score(cur_cy, cm,cf,"CY_prob"), "CY_prob", CY_STAT_COLS),  prev_cy)
+
+    try:
+        from sync_espn_headshots import add_players_if_new
+        candidates = list(dict.fromkeys(t10_mvp["Name"].tolist() + t10_cy["Name"].tolist()))
+        new_names = add_players_if_new(candidates)
+        if new_names:
+            print(f"\nHeadshot list: added {len(new_names)} new player(s): {', '.join(new_names)}")
+        else:
+            print("\nHeadshot list: no new players to add.")
+    except Exception as exc:
+        print(f"\n[WARN] Could not update headshot fetch list: {exc}")
 
     wp = get_winpct(year)
     print("WinPct sample:")
