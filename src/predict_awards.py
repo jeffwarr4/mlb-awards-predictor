@@ -528,7 +528,7 @@ def top10(df, prob, stats):
                .copy())
         sub["rank"] = range(1, len(sub) + 1)
         sub.insert(0, "player_key", sub.apply(
-            lambda r: _player_key(r["Name"], r["Team"]), axis=1))
+            lambda r: _headshot_key(r["Name"]), axis=1))
         frames.append(sub)
     return pd.concat(frames, ignore_index=True)
 
