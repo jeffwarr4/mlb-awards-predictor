@@ -60,17 +60,27 @@ TEAM_ABBR_CANON = {
 MLB_STATS_BASE = "https://statsapi.mlb.com/api/v1"
 FG_PROJ_BASE   = "https://www.fangraphs.com/api/projections"
 
-# The FanGraphs actuals leaderboard (/api/leaders/major-league/data) is behind
-# Cloudflare's JS challenge — unreachable by any requests-based approach.
-# /api/projections is unprotected and serves Steamer (updated weekly in-season).
-_FG_SESSION = requests.Session()
-_FG_SESSION.headers.update({
+_FG_HEADERS = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                        " (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer":         "https://www.fangraphs.com/",
     "Accept":          "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
-})
+}
+# Session for unprotected endpoints (projections) — no auth, avoids Cloudflare scrutiny
+_FG_SESSION = requests.Session()
+_FG_SESSION.headers.update(_FG_HEADERS)
+
+# Separate session for authenticated actuals endpoint
+_FG_AUTH_SESSION = requests.Session()
+_FG_AUTH_SESSION.headers.update(_FG_HEADERS)
+try:
+    from config import FG_USERNAME, FG_APP_PASSWORD
+    if FG_USERNAME and FG_APP_PASSWORD:
+        _FG_AUTH_SESSION.auth = (FG_USERNAME, FG_APP_PASSWORD)
+        print("FanGraphs: Basic Auth session ready")
+except ImportError:
+    pass
 
 # Full team names exactly as returned by MLB Stats API → canonical abbreviation.
 # Used by get_winpct, get_batting_stats, and get_pitching_stats.
@@ -228,6 +238,64 @@ def get_pitching_stats(year: int) -> pd.DataFrame:
     return df
 
 
+def load_fg_exports(year: int) -> tuple:
+    """Load manually downloaded FanGraphs leaderboard CSVs.
+
+    Drop files into data/raw/fg_exports/ named:
+        fg_bat_{year}.csv   — batting dashboard export (qual=0, all teams)
+        fg_pit_{year}.csv   — pitching dashboard export (qual=0, all teams)
+
+    Both exports must include the MLBAMID column (visible in subscriber exports).
+    Returns (bat_df, pit_df) keyed on mlbam_id, or empty DataFrames if files missing.
+    """
+    from config import FG_EXPORT_DIR
+    bat_path = FG_EXPORT_DIR / f"fg_bat_{year}.csv"
+    pit_path = FG_EXPORT_DIR / f"fg_pit_{year}.csv"
+
+    bat_df = pd.DataFrame()
+    pit_df = pd.DataFrame()
+
+    if bat_path.exists():
+        try:
+            raw = pd.read_csv(bat_path)
+            raw.columns = raw.columns.str.strip()
+            bat_df = pd.DataFrame({
+                "mlbam_id":    pd.to_numeric(raw["MLBAMID"], errors="coerce"),
+                "fg_WAR_bat":  pd.to_numeric(raw.get("WAR",  raw.get("war",  0)), errors="coerce").fillna(0),
+                "fg_wRC_plus": pd.to_numeric(raw.get("wRC+", raw.get("wrc+", 0)), errors="coerce").fillna(0),
+            }).dropna(subset=["mlbam_id"])
+            bat_df["mlbam_id"] = bat_df["mlbam_id"].astype(int)
+            print(f"  FG export (bat): {len(bat_df)} rows from {bat_path.name}")
+        except Exception as e:
+            print(f"  FG export bat load failed: {e}")
+    else:
+        print(f"  FG export (bat): not found — {bat_path.name}")
+
+    if pit_path.exists():
+        try:
+            raw = pd.read_csv(pit_path)
+            raw.columns = raw.columns.str.strip()
+            # K% column name varies: "K%" on dashboard, "K/9" on some views
+            kpct_col  = next((c for c in raw.columns if c in ("K%", "K/9")), None)
+            bbpct_col = next((c for c in raw.columns if c in ("BB%", "BB/9")), None)
+            fip_col   = next((c for c in raw.columns if c.upper() == "FIP"), None)
+            pit_df = pd.DataFrame({
+                "mlbam_id":  pd.to_numeric(raw["MLBAMID"], errors="coerce"),
+                "fg_WAR_pit": pd.to_numeric(raw.get("WAR", 0), errors="coerce").fillna(0),
+                "fg_FIP":    pd.to_numeric(raw[fip_col],   errors="coerce").fillna(0) if fip_col   else 0.0,
+                "fg_Kpct":   pd.to_numeric(raw[kpct_col],  errors="coerce").fillna(0) if kpct_col  else 0.0,
+                "fg_BBpct":  pd.to_numeric(raw[bbpct_col], errors="coerce").fillna(0) if bbpct_col else 0.0,
+            }).dropna(subset=["mlbam_id"])
+            pit_df["mlbam_id"] = pit_df["mlbam_id"].astype(int)
+            print(f"  FG export (pit): {len(pit_df)} rows from {pit_path.name}")
+        except Exception as e:
+            print(f"  FG export pit load failed: {e}")
+    else:
+        print(f"  FG export (pit): not found — {pit_path.name}")
+
+    return bat_df, pit_df
+
+
 def get_fg_projections() -> tuple:
     """Fetch Steamer projections from FanGraphs /api/projections (unprotected endpoint).
 
@@ -281,6 +349,89 @@ def get_fg_projections() -> tuple:
     return bat_df, pit_df
 
 
+FG_LEADERS_BASE = "https://www.fangraphs.com/api/leaders/major-league/data"
+
+def get_fg_actuals() -> tuple:
+    """Fetch actual season stats from FanGraphs leaderboard using Basic Auth.
+
+    Requires FG_USERNAME + FG_APP_PASSWORD in config.py (WordPress Application Password).
+    Returns (bat_df, pit_df) keyed on mlbam_id, or (empty, empty) if auth fails.
+
+    Provides real accumulated WAR, wRC+, FIP, K% — superior to Steamer projections
+    once enough games have been played (target: end of May).
+    """
+    if not getattr(_FG_AUTH_SESSION, "auth", None):
+        return pd.DataFrame(), pd.DataFrame()
+
+    bat_df = pd.DataFrame()
+    pit_df = pd.DataFrame()
+
+    bat_params = {
+        "pos":     "all",
+        "stats":   "bat",
+        "lg":      "all",
+        "qual":    0,
+        "type":    "8",   # dashboard (WAR, wRC+, OBP, SLG, OPS)
+        "season":  CURRENT_YEAR,
+        "season1": CURRENT_YEAR,
+        "ind":     0,
+        "team":    0,
+        "players": 0,
+        "startdate": "",
+        "enddate":   "",
+    }
+    pit_params = {
+        "pos":     "all",
+        "stats":   "pit",
+        "lg":      "all",
+        "qual":    0,
+        "type":    "8",   # dashboard (WAR, FIP, K%, BB%, ERA-)
+        "season":  CURRENT_YEAR,
+        "season1": CURRENT_YEAR,
+        "ind":     0,
+        "team":    0,
+        "players": 0,
+        "startdate": "",
+        "enddate":   "",
+    }
+
+    try:
+        r = _FG_AUTH_SESSION.get(FG_LEADERS_BASE, params=bat_params, timeout=15)
+        r.raise_for_status()
+        payload = r.json()
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        bat_df = pd.DataFrame([
+            {"mlbam_id":    int(row["xMLBAMID"]),
+             "fg_WAR_bat":  float(row.get("WAR") or 0),
+             "fg_wRC_plus": float(row.get("wRC+") or 0)}
+            for row in rows
+            if row.get("xMLBAMID")
+        ])
+        print(f"  FG actuals (bat): {len(bat_df)} rows")
+    except Exception as e:
+        print(f"  FG actuals bat failed: {e}")
+
+    try:
+        r = _FG_AUTH_SESSION.get(FG_LEADERS_BASE, params=pit_params, timeout=15)
+        r.raise_for_status()
+        payload = r.json()
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        pit_df = pd.DataFrame([
+            {"mlbam_id":  int(row["xMLBAMID"]),
+             "fg_WAR_pit": float(row.get("WAR") or 0),
+             "fg_FIP":     float(row.get("FIP") or 0),
+             "fg_Kpct":    float(row.get("K%") or 0),
+             "fg_BBpct":   float(row.get("BB%") or 0)}
+            for row in rows
+            if row.get("xMLBAMID")
+        ])
+        print(f"  FG actuals (pit): {len(pit_df)} rows")
+    except Exception as e:
+        print(f"  FG actuals pit failed: {e}")
+
+    return bat_df, pit_df
+
+
 def ip_to_outs(ip):
     if pd.isna(ip): return 0
     w = int(np.floor(ip)); return w * 3 + int(round((ip - w) * 10))
@@ -320,7 +471,13 @@ def build_features(year: int) -> pd.DataFrame:
     bat = get_batting_stats(year)
     pit = get_pitching_stats(year)
     print(f"  batters: {len(bat)}  pitchers: {len(pit)}")
-    fg_bat, fg_pit = get_fg_projections()
+
+    # Priority: manual CSV export > authenticated actuals > Steamer projections
+    fg_bat, fg_pit = load_fg_exports(year)
+    if fg_bat.empty and fg_pit.empty:
+        fg_bat, fg_pit = get_fg_actuals()
+    if fg_bat.empty and fg_pit.empty:
+        fg_bat, fg_pit = get_fg_projections()
 
     if bat.empty:
         bat = pd.DataFrame(columns=[

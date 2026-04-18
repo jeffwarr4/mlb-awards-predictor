@@ -4,8 +4,14 @@ __pycache__/
 .env
 venv/
 
-# Local data inputs
-data/
+# Local overrides — credentials, personal paths (never commit)
+config_local.py
+
+# Local data inputs — ignore everything except FG manual exports
+data/*
+!data/raw/
+data/raw/*
+!data/raw/fg_exports/
 
 # Model binaries — large files, not tracked
 models/

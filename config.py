@@ -23,6 +23,7 @@ DATA_VOTING = ROOT_DIR / "data" / "voting"   # historical award vote CSVs
 MODELS_DIR  = ROOT_DIR / "models"            # saved .joblib files (gitignored)
 PREDICTIONS = ROOT_DIR / "predictions"       # output CSVs (gitignored)
 SRC_DIR     = ROOT_DIR / "src"
+FG_EXPORT_DIR = DATA_RAW / "fg_exports"     # manually downloaded FG CSVs (gitignored)
 
 # ── Lahman ────────────────────────────────────────────────────────
 LAHMAN_ZIP    = DATA_RAW / "lahman_1871-2025_csv.zip"
@@ -68,6 +69,17 @@ def fg_projection_type() -> str:
     if SEASON_START <= today <= SEASON_END:
         return "steamerr"
     return "steamer"
+
+# ── FanGraphs credentials (WordPress Application Password) ───────────────────
+# Store in config_local.py (gitignored) — never put real values here.
+# Generate at: https://www.fangraphs.com/wp-admin/profile.php → Application Passwords
+FG_USERNAME     = ""
+FG_APP_PASSWORD = ""
+
+try:
+    from config_local import *  # noqa: F401,F403 — local overrides (gitignored)
+except ImportError:
+    pass
 
 # Best model per task based on Top1HitRate + Recall@5
 CHAMPION_MODEL = {
