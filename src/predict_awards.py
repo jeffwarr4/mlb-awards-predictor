@@ -108,9 +108,9 @@ TEAM_NAME_TO_ABBR: Dict[str, str] = {
     "Nationals":"WSN","Marlins":"MIA",
 }
 
-MVP_STAT_COLS  = ["bat_WAR_fg","bat_wRC_plus","bat_OPS","HR","RBI","WinPct"]
+MVP_STAT_COLS  = ["bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","HR","RBI","WinPct"]
 CY_STAT_COLS   = ["pit_WAR_fg","pit_FIP","pit_Kpct","SO_pit","IP","WinPct"]
-MVP_CANVA_COLS = ["bat_WAR_fg","bat_wRC_plus","bat_OPS","HR","RBI"]
+MVP_CANVA_COLS = ["bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","HR","RBI"]
 CY_CANVA_COLS  = ["pit_WAR_fg","pit_FIP","pit_Kpct","SO_pit","IP"]
 
 
@@ -154,6 +154,7 @@ def get_batting_stats(year: int) -> pd.DataFrame:
             "3B":  s.get("triples", 0),
             "HBP": s.get("hitByPitch", 0),
             "SF":  s.get("sacFlies", 0),
+            "AVG": float(s.get("avg", 0) or 0),
             "OBP": float(s.get("obp", 0) or 0),
             "SLG": float(s.get("slg", 0) or 0),
             "OPS": float(s.get("ops", 0) or 0),
@@ -506,7 +507,7 @@ def build_features(year: int) -> pd.DataFrame:
     # bat_* columns are FanGraphs-named display aliases; OBP/SLG/OPS keep their
     # original names because that is what the trained model feature columns expect.
     for s, d in [("WAR","bat_WAR_fg"),("wRC+","bat_wRC_plus"),
-                 ("OPS","bat_OPS"),("OBP","bat_OBP"),("SLG","bat_SLG")]:
+                 ("AVG","bat_AVG"),("OPS","bat_OPS"),("OBP","bat_OBP"),("SLG","bat_SLG")]:
         if s in bat.columns:
             bat[d] = pd.to_numeric(bat[s], errors="coerce")
     # Ensure Lahman-named model features are numeric and present
@@ -531,7 +532,7 @@ def build_features(year: int) -> pd.DataFrame:
     bk = [c for c in ["Name","mlbam_id","Team","lgID","G_bat","AB","H","HR","RBI","BB","SO",
           "SB","CS","R","2B","3B","HBP","SF",
           "OBP","SLG","OPS",              # Lahman names — used directly by model
-          "bat_WAR_fg","bat_wRC_plus","bat_OPS","bat_OBP","bat_SLG"]
+          "bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","bat_OBP","bat_SLG"]
           if c in bat.columns]
     pk = [c for c in ["Name","mlbam_id","Team","lgID","IP","IPouts","G_pit","GS","SO_pit",
           "BB_pit","ER","HR_pit","SV","W_pit","L_pit","H_pit","pit_WAR_fg",
