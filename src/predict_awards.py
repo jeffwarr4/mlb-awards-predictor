@@ -794,13 +794,22 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
 
     # Headshot candidates — stable path fetched weekly by stinger-assets workflow
     candidates_path = Path("predictions/mlb_candidates.csv")
-    seen: set[str] = set()
+    combined = (
+        pd.concat([t10_mvp[["Name", "Team"]], t10_cy[["Name", "Team"]]])
+        .drop_duplicates(subset=["Name", "Team"])
+        .reset_index(drop=True)
+    )
+    # Detect same-name players on different teams — add team suffix for both
+    name_counts = combined["Name"].value_counts()
+    seen_keys: set[str] = set()
     rows = []
-    for name in dict.fromkeys(t10_mvp["Name"].tolist() + t10_cy["Name"].tolist()):
-        key = _headshot_key(name)
-        if key not in seen:
-            rows.append({"sport": "MLB", "player_name": name, "player_key": key})
-            seen.add(key)
+    for _, r in combined.iterrows():
+        name, team = r["Name"], r["Team"]
+        needs_team = name_counts[name] > 1
+        key = _headshot_key(f"{name} {team}" if needs_team else name)
+        if key not in seen_keys:
+            rows.append({"sport": "MLB", "player_name": name, "team": team if needs_team else "", "player_key": key})
+            seen_keys.add(key)
     pd.DataFrame(rows).to_csv(candidates_path, index=False)
     saved["mlb_candidates"] = str(candidates_path)
     print(f"  Headshot candidates → {candidates_path} ({len(rows)} players)")
