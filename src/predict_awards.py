@@ -649,13 +649,13 @@ def score(df, model, feats, col):
     out = df.copy(); out[col] = model.predict_proba(X)[:,1]; return out
 
 
-def _headshot_key(name: str) -> str:
-    """Filename slug for stinger-assets: firstname_lastname (no team, no accents).
+def _headshot_key(name: str, team: str) -> str:
+    """Filename slug for stinger-assets: firstname_lastname_team (no accents).
     Must match safe_filename() in sync_espn_headshots.py.
-    e.g. 'José Ramírez' → 'jose_ramirez',  'Jazz Chisholm Jr.' → 'jazz_chisholm_jr'
+    e.g. 'José Ramírez', 'CLE' → 'jose_ramirez_cle'
     """
     import unicodedata as _ud
-    n = _ud.normalize("NFD", name).encode("ascii", "ignore").decode("ascii")
+    n = _ud.normalize("NFD", f"{name} {team}").encode("ascii", "ignore").decode("ascii")
     return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", n.lower())).strip("_")
 
 
@@ -686,7 +686,7 @@ def top10(df, prob, stats):
                .copy())
         sub["rank"] = range(1, len(sub) + 1)
         sub.insert(0, "player_key", sub.apply(
-            lambda r: _headshot_key(r["Name"]), axis=1))
+            lambda r: _headshot_key(r["Name"], r["Team"]), axis=1))
         frames.append(sub)
     return pd.concat(frames, ignore_index=True)
 
@@ -751,8 +751,14 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
 
     try:
         from sync_espn_headshots import add_players_if_new
-        candidates = list(dict.fromkeys(t10_mvp["Name"].tolist() + t10_cy["Name"].tolist()))
-        new_names = add_players_if_new(candidates)
+        combined_names = t10_mvp["Name"].tolist() + t10_cy["Name"].tolist()
+        combined_teams = t10_mvp["Team"].tolist() + t10_cy["Team"].tolist()
+        seen_n: set[str] = set()
+        deduped_names, deduped_teams = [], []
+        for n, t in zip(combined_names, combined_teams):
+            if n not in seen_n:
+                seen_n.add(n); deduped_names.append(n); deduped_teams.append(t)
+        new_names = add_players_if_new(deduped_names, teams=deduped_teams)
         if new_names:
             print(f"\nHeadshot list: added {len(new_names)} new player(s): {', '.join(new_names)}")
         else:
@@ -799,16 +805,12 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
         .drop_duplicates(subset=["Name", "Team"])
         .reset_index(drop=True)
     )
-    # Detect same-name players on different teams — add team suffix for both
-    name_counts = combined["Name"].value_counts()
     seen_keys: set[str] = set()
     rows = []
     for _, r in combined.iterrows():
-        name, team = r["Name"], r["Team"]
-        needs_team = name_counts[name] > 1
-        key = _headshot_key(f"{name} {team}" if needs_team else name)
+        key = _headshot_key(r["Name"], r["Team"])
         if key not in seen_keys:
-            rows.append({"sport": "MLB", "player_name": name, "team": team if needs_team else "", "player_key": key})
+            rows.append({"sport": "MLB", "player_name": r["Name"], "team": r["Team"], "player_key": key})
             seen_keys.add(key)
     pd.DataFrame(rows).to_csv(candidates_path, index=False)
     saved["mlb_candidates"] = str(candidates_path)
