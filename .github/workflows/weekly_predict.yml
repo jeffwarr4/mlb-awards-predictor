@@ -1,13 +1,14 @@
 # .github/workflows/weekly_predict.yml
 # ---------------------------------------------------------------
-# Runs every Tuesday at 9 AM ET (13:00 UTC) during MLB season.
+# Runs every Monday at 9 AM ET (13:00 UTC) during MLB season.
 # Also supports manual runs via workflow_dispatch.
 #
 # What it does:
-#   1. Sets up Python + venv
-#   2. Runs src/predict_awards.py
-#   3. Commits updated CSVs back to the repo
-#   4. Optionally uploads CSVs as workflow artifacts
+#   1. Sets up Python + dependencies
+#   2. Pulls FanGraphs actuals (WAR, wRC+, FIP) via team-by-team API
+#   3. Runs src/predict_awards.py
+#   4. Commits updated CSVs back to the repo
+#   5. Uploads CSVs as workflow artifacts
 #
 # Secrets required (set in repo Settings → Secrets → Actions):
 #   None required for basic operation.
@@ -18,7 +19,7 @@ name: Weekly MLB Awards Prediction
 
 on:
   schedule:
-    # Every Tuesday at 9:00 AM ET (13:00 UTC)
+    # Every Monday at 9:00 AM ET (13:00 UTC)
     # Adjust cron if you prefer a different day/time
     - cron: '0 13 * * 1'
 
@@ -56,22 +57,22 @@ jobs:
           pip install -r requirements.txt
 
         
-      # ── 4. Run prediction script ──────────────────────────────
-      - name: Debug file structure
-        run: |
-          echo "Working directory:"
-          pwd
-          echo "Root contents:"
-          ls -la
-          echo "src/ contents:"
-          ls -la src/
-      - name: Run weekly prediction
-        run: |
-          python src/predict_awards.py
+      # ── 4. Pull FanGraphs current stats ──────────────────────
+      # Runs before predict_awards.py so load_fg_exports() finds
+      # fresh data. GitHub's rotating IPs avoid Cloudflare bans;
+      # 10s delay between teams keeps requests human-paced (~10 min).
+      - name: Pull FanGraphs actuals
+        run: python src/pull_fg_current.py --force
         env:
           PYTHONPATH: ${{ github.workspace }}
 
-      # ── 5. Upload CSVs as artifacts (viewable in Actions UI) ──
+      # ── 5. Run prediction script ──────────────────────────────
+      - name: Run weekly prediction
+        run: python src/predict_awards.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      # ── 6. Upload CSVs as artifacts (viewable in Actions UI) ──
       - name: Upload prediction artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -81,7 +82,7 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
-      # ── 6. Commit updated CSVs back to repo ───────────────────
+      # ── 7. Commit updated CSVs back to repo ───────────────────
       - name: Commit updated predictions
         run: |
           git config user.name  "github-actions[bot]"

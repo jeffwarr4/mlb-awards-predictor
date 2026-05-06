@@ -6,6 +6,7 @@ venv/
 
 # Local overrides — credentials, personal paths (never commit)
 config_local.py
+FG App Password.txt
 
 # Local data inputs — ignore everything except FG manual exports
 data/*
