@@ -53,6 +53,24 @@ EXCLUDE_ALWAYS = {
     "voteShare_MVP","voteShare_CY",
     "pointsWon_MVP","pointsMax_MVP","votesFirst_MVP",
     "pointsWon_CY","pointsMax_CY","votesFirst_CY",
+    # Lahman-derived OPS/OBP/SLG duplicate the FanGraphs bat_OPS/bat_OBP/bat_SLG
+    # signal almost exactly (corr > 0.9999) but are populated far less completely
+    # in recent seasons (~44% nonzero vs ~99% for bat_OPS in 2024-25). Having both
+    # in the same regularized model causes the duplicated weight to split across
+    # them with arbitrary, sometimes sign-flipped coefficients (bat_OPS/bat_SLG
+    # ended up negatively weighted despite being clearly positive indicators).
+    # Keep the more complete bat_* versions only.
+    "OPS","OBP","SLG",
+    # bat_OPS = bat_OBP + bat_SLG by definition -- exact collinearity, not just
+    # correlation. Keeping all three still let regularization split/flip sign on
+    # them arbitrarily. Drop the composite and keep its two true components.
+    "bat_OPS",
+    # bat_OBP/bat_SLG still flip negative even alone, because bat_WAR_fg and
+    # bat_wRC_plus already encode the same OBP/SLG-driven offensive signal in
+    # weighted form -- the raw components become pure "correction" terms that
+    # regularization assigns negative weight to (suppressor effect). Drop them
+    # and let WAR/wRC+ carry hitting-quality signal instead.
+    "bat_OBP","bat_SLG",
 }
 
 

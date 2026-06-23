@@ -108,10 +108,18 @@ TEAM_NAME_TO_ABBR: Dict[str, str] = {
     "Nationals":"WSN","Marlins":"MIA",
 }
 
-MVP_STAT_COLS  = ["bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","HR","RBI","WinPct"]
+MVP_STAT_COLS  = ["bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","HR","RBI","PA","WinPct"]
 CY_STAT_COLS   = ["pit_WAR_fg","pit_FIP","pit_Kpct","SO_pit","IP","WinPct"]
 MVP_CANVA_COLS = ["bat_WAR_fg","bat_wRC_plus","bat_AVG","bat_OPS","HR","RBI"]
 CY_CANVA_COLS  = ["pit_WAR_fg","pit_FIP","pit_Kpct","SO_pit","IP"]
+
+# Official batting-title qualifying pace (Rule 10.22(a)): 3.1 PA per team game
+# scheduled (≈502 PA over a 162-game season). Used to gate MVP eligibility for
+# position players so a hitter frozen by injury falls out of contention as his
+# team keeps playing without him. Not applied to Cy Young — several relief
+# pitchers (Eckersley '92, Gagné '03, M. Davis '89) won without meeting the
+# equivalent 1 IP/team-game pace, so CY intentionally stays on the IPouts>0 filter.
+MVP_QUALIFYING_PA_PER_TEAM_GAME = 3.1
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -455,7 +463,8 @@ def get_winpct(year: int) -> pd.DataFrame:
                 if not abbr:
                     continue
                 w, l = tr.get("wins", 0), tr.get("losses", 0)
-                rows.append({"Team": abbr, "WinPct": w / (w + l) if w + l else 0.5})
+                rows.append({"Team": abbr, "WinPct": w / (w + l) if w + l else 0.5,
+                             "TeamG": w + l})
         df = pd.DataFrame(rows)
         if not df.empty:
             return df
@@ -463,7 +472,10 @@ def get_winpct(year: int) -> pd.DataFrame:
         print(f"  WinPct fetch failed: {e}")
 
     print("  WinPct fallback 0.500")
-    return pd.DataFrame({"Team": list(TEAM_LEAGUE), "WinPct": [0.5] * len(TEAM_LEAGUE)})
+    # TeamG=0 fails open (qualifying threshold becomes 0 PA) rather than
+    # disqualifying the entire league if the standings fetch is down.
+    return pd.DataFrame({"Team": list(TEAM_LEAGUE), "WinPct": [0.5] * len(TEAM_LEAGUE),
+                          "TeamG": [0] * len(TEAM_LEAGUE)})
 
 
 # ── Feature builder ───────────────────────────────────────────────
@@ -589,6 +601,13 @@ def build_features(year: int) -> pd.DataFrame:
 
     cur = cur.merge(get_winpct(year), on="Team", how="left")
     cur["WinPct"] = pd.to_numeric(cur.get("WinPct"), errors="coerce").fillna(0.5)
+    cur["TeamG"]  = pd.to_numeric(cur.get("TeamG"), errors="coerce").fillna(0)
+
+    # Plate appearances and the prorated batting-title qualifying pace.
+    pad(cur, ["AB","BB","HBP","SF"])
+    cur["PA"] = cur["AB"] + cur["BB"] + cur["HBP"] + cur["SF"]
+    cur["MVP_qualified"] = cur["PA"] >= (MVP_QUALIFYING_PA_PER_TEAM_GAME * cur["TeamG"])
+
     pad(cur, ["G_fld","PO","A","E","DP","FieldPct"])
     nc = cur.select_dtypes(include=[np.number]).columns
     cur[nc] = cur[nc].replace([np.inf,-np.inf], np.nan).fillna(0)
@@ -736,10 +755,13 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
     cm, cf = load_model("CY_top5",   models_dir)
     # Minimum activity filters — keeps Skubal in MVP, removes Judge from CY
     # Any pitcher with at least 1 inning is CY eligible
-    # Any batter with at least 1 PA OR pitcher with MVP-caliber WAR is MVP eligible
+    # Position players must meet the batting-title qualifying pace (3.1 PA per
+    # team game) to be MVP eligible — a hitter sidelined by injury falls out as
+    # his team keeps playing without him. Pitchers reaching MVP-caliber WAR
+    # (Ohtani tier) bypass the PA gate; that path isn't about hitting volume.
     cur_mvp = cur[
-    (cur["AB"] > 0) |                    # position players
-    (cur["bat_WAR_fg"] >= 1.5)           # Ohtani tier (future-proof)
+    ((cur["AB"] > 0) & cur["MVP_qualified"]) |   # qualified position players
+    (cur["bat_WAR_fg"] >= 1.5)                   # Ohtani tier (future-proof)
     ].copy()
 
     cur_cy = cur[
