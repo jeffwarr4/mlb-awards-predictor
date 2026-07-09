@@ -16,7 +16,7 @@
 # Outputs: predictions/{year}/graphics/{award}_{league}_{ts}.png
 # ---------------------------------------------------------------
 
-import sys, argparse, textwrap
+import os, sys, argparse, textwrap
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -27,7 +27,12 @@ from typing import List, Optional, Dict, Tuple
 
 # ── Asset paths ───────────────────────────────────────────────────
 REPO_ROOT      = Path(__file__).parent.parent
-STINGER_ASSETS = Path(r"C:\Users\jeffw\OneDrive\DevProj\stinger-assets")
+# Override with STINGER_ASSETS_DIR env var so CI (GitHub Actions) can point
+# at a checked-out copy of the sibling repo instead of the local Windows path.
+STINGER_ASSETS = Path(os.environ.get(
+    "STINGER_ASSETS_DIR",
+    r"C:\Users\jeffw\OneDrive\DevProj\stinger-assets",
+))
 HEADSHOTS_DIR  = STINGER_ASSETS / "mlb" / "Headshots"
 LOGOS_DIR      = STINGER_ASSETS / "mlb" / "logos"
 
@@ -37,12 +42,35 @@ BACKGROUND = {
 }
 
 # ── Fonts ─────────────────────────────────────────────────────────
-_F = Path("C:/Windows/Fonts")
+# CI font strategy: free OFL alternatives (Oswald / Barlow) downloaded to
+# assets/fonts/ by the workflow; Windows proprietary fonts used locally.
+_REPO_FONTS = REPO_ROOT / "assets" / "fonts"
+_F_WIN      = Path("C:/Windows/Fonts")
+
+def _find_font(*candidates: str) -> str:
+    """Return the first candidate path that actually exists on this machine."""
+    for p in candidates:
+        if Path(p).exists():
+            return str(p)
+    return candidates[-1]  # not found → _font() try/except catches the error
+
 FONT_PATH = {
-    "agency_bold":  str(_F / "AGENCYB.TTF"),
-    "fg_med_cond":  str(_F / "FRAMDCN.TTF"),
-    "fg_demi":      str(_F / "FRADM.TTF"),
-    "fg_demi_cond": str(_F / "FRADMCN.TTF"),
+    "agency_bold":  _find_font(
+        str(_REPO_FONTS / "Oswald-Bold.ttf"),       # CI: OFL condensed-bold sub
+        str(_F_WIN     / "AGENCYB.TTF"),             # local Windows
+    ),
+    "fg_med_cond":  _find_font(
+        str(_REPO_FONTS / "BarlowCondensed-Medium.ttf"),
+        str(_F_WIN     / "FRAMDCN.TTF"),
+    ),
+    "fg_demi":      _find_font(
+        str(_REPO_FONTS / "BarlowSemiCondensed-SemiBold.ttf"),
+        str(_F_WIN     / "FRADM.TTF"),
+    ),
+    "fg_demi_cond": _find_font(
+        str(_REPO_FONTS / "BarlowCondensed-SemiBold.ttf"),
+        str(_F_WIN     / "FRADMCN.TTF"),
+    ),
 }
 
 # ── Brand colors ──────────────────────────────────────────────────

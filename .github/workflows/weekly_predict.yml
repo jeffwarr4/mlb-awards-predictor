@@ -5,14 +5,18 @@
 #
 # What it does:
 #   1. Sets up Python + dependencies
-#   2. Pulls FanGraphs actuals (WAR, wRC+, FIP) via team-by-team API
-#   3. Runs src/predict_awards.py
-#   4. Commits updated CSVs back to the repo
-#   5. Uploads CSVs as workflow artifacts
+#   2. Checks out stinger-assets (headshots + logos for graphics)
+#   3. Downloads free font alternatives (Oswald / Barlow) for rendering
+#   4. Pulls FanGraphs actuals (WAR, wRC+, FIP) via team-by-team API
+#   5. Runs src/predict_awards.py  → predictions/, graphics/, captions
+#   6. Commits updated predictions back to the repo
+#   7. Uploads CSVs + PNGs as workflow artifacts
 #
 # Secrets required (set in repo Settings → Secrets → Actions):
-#   None required for basic operation.
-#   Add GOOGLE_SHEETS_KEY if you later automate Sheet uploads.
+#   ANTHROPIC_API_KEY  — enables chip/why and social caption generation
+#   STINGER_ASSETS_PAT — personal access token with read access to
+#                        jeffwarr4/stinger-assets (only needed if that
+#                        repo is private; omit for public repos)
 # ---------------------------------------------------------------
 
 name: Weekly MLB Awards Prediction
@@ -20,7 +24,6 @@ name: Weekly MLB Awards Prediction
 on:
   schedule:
     # Every Monday at 9:00 AM ET (13:00 UTC)
-    # Adjust cron if you prefer a different day/time
     - cron: '0 13 * * 1'
 
   # Manual trigger — run anytime from Actions tab
@@ -36,28 +39,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout repo ──────────────────────────────────────
+      # ── 1. Checkout main repo ─────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Need full history so git push works cleanly
           fetch-depth: 0
 
-      # ── 2. Set up Python ──────────────────────────────────────
+      # ── 2. Checkout stinger-assets (headshots + logos) ────────
+      # Checked out as a sibling directory so STINGER_ASSETS_DIR
+      # matches the ../stinger-assets/ convention used locally.
+      # If stinger-assets is private, add a PAT as STINGER_ASSETS_PAT
+      # in repo Settings → Secrets → Actions and uncomment the token line.
+      - name: Checkout stinger-assets
+        uses: actions/checkout@v4
+        with:
+          repository: jeffwarr4/stinger-assets
+          path: stinger-assets
+          # token: ${{ secrets.STINGER_ASSETS_PAT }}
+
+      # ── 3. Set up Python ──────────────────────────────────────
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      # ── 3. Install dependencies ───────────────────────────────
+      # ── 4. Install dependencies ───────────────────────────────
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-        
-      # ── 4. Pull FanGraphs current stats ──────────────────────
+      # ── 5. Download free font alternatives for CI rendering ───
+      # Oswald Bold ≈ Agency FB Bold; Barlow Condensed ≈ Franklin Gothic.
+      # render_graphics.py checks assets/fonts/ before Windows system fonts,
+      # so these are picked up automatically on the Linux runner.
+      - name: Download rendering fonts
+        run: |
+          mkdir -p assets/fonts
+          BASE="https://github.com/google/fonts/raw/main/ofl"
+          wget -q -O assets/fonts/Oswald-Bold.ttf \
+            "${BASE}/oswald/static/Oswald-Bold.ttf" \
+            || echo "WARNING: Oswald-Bold download failed — will fall back to default font"
+          wget -q -O assets/fonts/BarlowCondensed-Medium.ttf \
+            "${BASE}/barlowcondensed/static/BarlowCondensed-Medium.ttf" \
+            || echo "WARNING: BarlowCondensed-Medium download failed"
+          wget -q -O assets/fonts/BarlowCondensed-SemiBold.ttf \
+            "${BASE}/barlowcondensed/static/BarlowCondensed-SemiBold.ttf" \
+            || echo "WARNING: BarlowCondensed-SemiBold download failed"
+          wget -q -O assets/fonts/BarlowSemiCondensed-SemiBold.ttf \
+            "${BASE}/barlowsemicondensed/static/BarlowSemiCondensed-SemiBold.ttf" \
+            || echo "WARNING: BarlowSemiCondensed-SemiBold download failed"
+          echo "Fonts in assets/fonts/:"
+          ls -lh assets/fonts/
+
+      # ── 6. Pull FanGraphs current stats ──────────────────────
       # Runs before predict_awards.py so load_fg_exports() finds
       # fresh data. GitHub's rotating IPs avoid Cloudflare bans;
       # 10s delay between teams keeps requests human-paced (~10 min).
@@ -66,37 +102,36 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
 
-      # ── 5. Run prediction script ──────────────────────────────
+      # ── 7. Run prediction script ──────────────────────────────
       - name: Run weekly prediction
         run: python src/predict_awards.py
         env:
           PYTHONPATH: ${{ github.workspace }}
-          # Optional: set ANTHROPIC_API_KEY in repo Secrets → Actions to enable
-          # chip/why generation (chip_data/chip_data_latest.csv). If absent the
-          # script prints a warning and continues without generating chips.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # stinger-assets checked out at workspace root/stinger-assets
+          STINGER_ASSETS_DIR: ${{ github.workspace }}/stinger-assets
 
-      # ── 6. Upload CSVs as artifacts (viewable in Actions UI) ──
+      # ── 8. Upload predictions as artifacts ────────────────────
       - name: Upload prediction artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mlb-predictions-${{ github.run_number }}
           path: |
             predictions/**/*.csv
+            predictions/**/*.png
+            predictions/**/*.txt
           retention-days: 90
           if-no-files-found: warn
 
-      # ── 7. Commit updated CSVs back to repo ───────────────────
+      # ── 9. Commit updated predictions back to repo ────────────
       - name: Commit updated predictions
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage only the prediction CSVs and prev snapshots
           git add predictions/
           git add -f predictions/**/.prev_top10_*.csv 2>/dev/null || true
 
-          # Only commit if something actually changed
           if git diff --staged --quiet; then
             echo "No prediction changes to commit."
           else
