@@ -71,6 +71,10 @@ jobs:
         run: python src/predict_awards.py
         env:
           PYTHONPATH: ${{ github.workspace }}
+          # Optional: set ANTHROPIC_API_KEY in repo Secrets → Actions to enable
+          # chip/why generation (chip_data/chip_data_latest.csv). If absent the
+          # script prints a warning and continues without generating chips.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       # ── 6. Upload CSVs as artifacts (viewable in Actions UI) ──
       - name: Upload prediction artifacts

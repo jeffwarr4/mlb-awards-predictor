@@ -757,11 +757,14 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
     # Any pitcher with at least 1 inning is CY eligible
     # Position players must meet the batting-title qualifying pace (3.1 PA per
     # team game) to be MVP eligible — a hitter sidelined by injury falls out as
-    # his team keeps playing without him. Pitchers reaching MVP-caliber WAR
-    # (Ohtani tier) bypass the PA gate; that path isn't about hitting volume.
+    # his team keeps playing without him. Two-way players accumulating elite WAR
+    # from both hitting and pitching (Ohtani tier) bypass the PA gate, but the
+    # threshold must be high enough that an injured hitter with a strong first
+    # half (e.g. 2-3 WAR in 60 games) does NOT sneak through — 4.0 requires
+    # genuinely exceptional total value regardless of playing time.
     cur_mvp = cur[
     ((cur["AB"] > 0) & cur["MVP_qualified"]) |   # qualified position players
-    (cur["bat_WAR_fg"] >= 1.5)                   # Ohtani tier (future-proof)
+    (cur["bat_WAR_fg"] >= 4.0)                   # Ohtani tier — exceptional total value
     ].copy()
 
     cur_cy = cur[
@@ -819,6 +822,14 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
     build_flat(t10_cy,  CY_CANVA_COLS).to_csv(outdir/"top5_flat_cy.csv",  index=False)
     saved["flat_mvp"] = str(outdir/"top5_flat_mvp.csv")
     saved["flat_cy"]  = str(outdir/"top5_flat_cy.csv")
+
+    # Chip / Why labels for top-3 per league per award (requires ANTHROPIC_API_KEY)
+    try:
+        from generate_chips import generate_chips
+        chip_path = generate_chips(t10_mvp, t10_cy, MVP_STAT_COLS, CY_STAT_COLS, outdir)
+        saved["chip_data"] = str(chip_path)
+    except Exception as exc:
+        print(f"\n[WARN] Chip generation skipped: {exc}")
 
     # Headshot candidates — stable path fetched weekly by stinger-assets workflow
     candidates_path = Path("predictions/mlb_candidates.csv")
