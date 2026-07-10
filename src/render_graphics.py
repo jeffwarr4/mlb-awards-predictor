@@ -56,19 +56,19 @@ def _find_font(*candidates: str) -> str:
 
 FONT_PATH = {
     "agency_bold":  _find_font(
-        str(_REPO_FONTS / "Oswald-Bold.ttf"),       # CI: OFL condensed-bold sub
-        str(_F_WIN     / "AGENCYB.TTF"),             # local Windows
+        str(_REPO_FONTS / "Oswald"                / "static" / "Oswald-Bold.ttf"),
+        str(_F_WIN     / "AGENCYB.TTF"),
     ),
     "fg_med_cond":  _find_font(
-        str(_REPO_FONTS / "BarlowCondensed-Medium.ttf"),
+        str(_REPO_FONTS / "Barlow_Condensed"      / "BarlowCondensed-Medium.ttf"),
         str(_F_WIN     / "FRAMDCN.TTF"),
     ),
     "fg_demi":      _find_font(
-        str(_REPO_FONTS / "BarlowSemiCondensed-SemiBold.ttf"),
+        str(_REPO_FONTS / "Barlow_Semi_Condensed" / "BarlowSemiCondensed-SemiBold.ttf"),
         str(_F_WIN     / "FRADM.TTF"),
     ),
     "fg_demi_cond": _find_font(
-        str(_REPO_FONTS / "BarlowCondensed-SemiBold.ttf"),
+        str(_REPO_FONTS / "Barlow_Condensed"      / "BarlowCondensed-SemiBold.ttf"),
         str(_F_WIN     / "FRADMCN.TTF"),
     ),
 }

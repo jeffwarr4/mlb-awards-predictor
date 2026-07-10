@@ -70,28 +70,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 5. Download free font alternatives for CI rendering ───
-      # Oswald Bold ≈ Agency FB Bold; Barlow Condensed ≈ Franklin Gothic.
-      # render_graphics.py checks assets/fonts/ before Windows system fonts,
-      # so these are picked up automatically on the Linux runner.
-      - name: Download rendering fonts
+      # ── 5. Verify fonts are present (committed to repo in assets/fonts/) ─
+      - name: Verify rendering fonts
         run: |
-          mkdir -p assets/fonts
-          BASE="https://github.com/google/fonts/raw/main/ofl"
-          wget -q -O assets/fonts/Oswald-Bold.ttf \
-            "${BASE}/oswald/static/Oswald-Bold.ttf" \
-            || echo "WARNING: Oswald-Bold download failed — will fall back to default font"
-          wget -q -O assets/fonts/BarlowCondensed-Medium.ttf \
-            "${BASE}/barlowcondensed/static/BarlowCondensed-Medium.ttf" \
-            || echo "WARNING: BarlowCondensed-Medium download failed"
-          wget -q -O assets/fonts/BarlowCondensed-SemiBold.ttf \
-            "${BASE}/barlowcondensed/static/BarlowCondensed-SemiBold.ttf" \
-            || echo "WARNING: BarlowCondensed-SemiBold download failed"
-          wget -q -O assets/fonts/BarlowSemiCondensed-SemiBold.ttf \
-            "${BASE}/barlowsemicondensed/static/BarlowSemiCondensed-SemiBold.ttf" \
-            || echo "WARNING: BarlowSemiCondensed-SemiBold download failed"
-          echo "Fonts in assets/fonts/:"
-          ls -lh assets/fonts/
+          echo "Font files in assets/fonts/:"
+          find assets/fonts -name "*.ttf" | sort
+          python - <<'EOF'
+          from pathlib import Path
+          needed = [
+            "assets/fonts/Oswald/static/Oswald-Bold.ttf",
+            "assets/fonts/Barlow_Condensed/BarlowCondensed-Medium.ttf",
+            "assets/fonts/Barlow_Condensed/BarlowCondensed-SemiBold.ttf",
+            "assets/fonts/Barlow_Semi_Condensed/BarlowSemiCondensed-SemiBold.ttf",
+          ]
+          missing = [p for p in needed if not Path(p).exists()]
+          if missing:
+            print("MISSING fonts:", missing)
+          else:
+            print("All 4 fonts present ✓")
+          EOF
 
       # ── 6. Pull FanGraphs current stats ──────────────────────
       # Runs before predict_awards.py so load_fg_exports() finds
