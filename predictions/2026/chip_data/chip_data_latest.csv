@@ -1,13 +1,13 @@
 player_key,Chip,Why
-ben_rice_nyy,Elite offensive efficiency | 28 home runs | Run producer,223 wRC+ and 0.956 OPS drive 2.1 bat WAR in 377 PA.
-yordan_alvarez_hou,Elite slugging | Run producer | Above-avg AVG,193 wRC+ and 1.03 OPS with 29 HR and 67 RBI across 406 PA drives 1.92 bat WAR.
-yandy_diaz_tbr,Elite contact | Offensive efficiency | Run producer,158 wRC+ and .326 AVG show elite offensive production; 1.07 bat WAR reflects high-value hitting.
-andy_pages_lad,Power | Run producer | Elite efficiency,"141 wRC+ and 1.37 bat WAR lead the model despite modest .263 average, driven by 16 HR and 64 RBI in 399 PA."
-jordan_walker_stl,168 wRC+ | 21 HRs | .886 OPS,168 wRC+ ranks among league leaders in offensive efficiency with 21 HRs and elite .886 OPS.
-shohei_ohtani_lad,Elite contact | Power | Run producer,126 wRC+ and .939 OPS demonstrate elite offensive efficiency with 20 HR and 56 RBI driving a .649 win% team.
-cam_schlittler_nyy,Elite command | Strikeout rate | Innings pitched,"1.98 WAR, 1.54 FIP, and 10.6% K-rate across 112 IP drive top Cy Young ranking."
-dylan_cease_tor,Elite command | Strikeout stuff | Innings pitched,"1.45 WAR, 2.13 FIP, and 13.1% K-rate across 98.1 IP support top-2 Cy Young ranking."
-casey_mize_det,Elite command | High K% | FIP excellence,2.81 FIP with 25.7% K rate across 71.2 IP showcases dominant strikeout stuff and low-run prevention.
-zack_wheeler_phi,Elite command | High strikeout rate | Efficient pitcher,3.2 FIP with 29.4% K-rate and 98 SO in 87 IP drives top ranking.
-yoshinobu_yamamoto_lad,Elite command | Strikeout stuff | Innings pitched,3.63 FIP with 100 strikeouts across 104.2 IP demonstrates dominant stuff and durability.
-jacob_misiorowski_mil,Elite command | High strikeout rate | Innings eater,1.01 WAR with 2.99 FIP and 14% K% across 111 IP supports top Cy Young consideration.
+ben_rice_nyy,Elite wRC+ | Power | Run producer,223 wRC+ and 29 HR drive 2.1 bat WAR in 390 PA.
+yordan_alvarez_hou,Elite wRC+ | Power threat | High average,"193 wRC+, .318 avg, and 31 HRs across 420 PA drive 1.92 bat-WAR ranking."
+yandy_diaz_tbr,Elite wRC+ | High AVG | Run producer,158 wRC+ and .322 AVG show elite offensive efficiency; 55 RBIs on 13 HRs indicate consistent run production.
+jordan_walker_stl,Elite wRC+ | Power | Run producer,"168 wRC+, 22 HR, and 74 RBI on 1.49 bat WAR leads MVP case."
+andy_pages_lad,141 wRC+ | 17 HR | Run producer,141 wRC+ offensive efficiency with 17 HR and 66 RBI drives 1.37 bat WAR ranking.
+shohei_ohtani_lad,Elite contact | Power | Run producer,126 wRC+ and .952 OPS showcase elite offensive efficiency despite 22 HR and 58 RBI over 404 PA.
+cam_schlittler_nyy,Elite command | Strikeout volume | Efficient ERA,1.54 FIP with 137 strikeouts in 118.2 IP and 10.6% K rate drives 1.98 WAR.
+dylan_cease_tor,Elite command | 148 strikeouts | Low FIP,2.13 FIP and 13.1% K% support elite stuff; 148 SO in 98.1 IP drives ranking.
+parker_messick_cle,Elite command | 110 strikeouts | Sub-3.08 FIP,1.12 WAR with 3.08 FIP and 9.6% K rate across 112 IP supports top-3 Cy Young case.
+zack_wheeler_phi,Elite command | Strikeout stuff | Innings pitched,3.05 FIP with 30.4% K rate over 93 IP drives Cy Young case.
+jacob_misiorowski_mil,Elite command | 167 strikeouts | Sub-3 FIP,2.99 FIP and 13.97% K-rate show dominant stuff; 167 SO over 111 IP pace elite output.
+chris_sale_atl,Elite strikeout rate | Low FIP | Innings pitched,117 strikeouts with 10.5% K rate and 3.50 FIP across 98 innings drives Cy Young case.
