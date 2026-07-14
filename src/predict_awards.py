@@ -839,14 +839,6 @@ def main(year=CURRENT_YEAR, outdir=None, models_dir=None, timestamp=None):
     except Exception as exc:
         print(f"\n[WARN] Graphic rendering skipped: {exc}")
 
-    # Social captions — Instagram/Facebook copy + hashtags for each graphic
-    try:
-        from generate_captions import generate_all_captions
-        caps = generate_all_captions(t10_mvp, t10_cy, outdir, year)
-        saved.update(caps)
-    except Exception as exc:
-        print(f"\n[WARN] Caption generation skipped: {exc}")
-
     # Headshot candidates — stable path fetched weekly by stinger-assets workflow
     candidates_path = Path("predictions/mlb_candidates.csv")
     combined = (
