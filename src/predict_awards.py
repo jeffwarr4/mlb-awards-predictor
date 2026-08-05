@@ -409,14 +409,22 @@ def get_fg_actuals() -> tuple:
         r.raise_for_status()
         payload = r.json()
         rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        if rows:
+            war_keys = [k for k in rows[0].keys() if "war" in k.lower()]
+            print(f"  FG actuals bat WAR-like keys in response: {war_keys}")
+        # Try "WAR" first; fall back to the first war-like key found
+        war_key_bat = "WAR"
+        if rows and not rows[0].get("WAR") and war_keys:
+            war_key_bat = war_keys[0]
+            print(f"  FG actuals bat: 'WAR' missing, using {war_key_bat!r}")
         bat_df = pd.DataFrame([
             {"mlbam_id":    int(row["xMLBAMID"]),
-             "fg_WAR_bat":  float(row.get("WAR") or 0),
+             "fg_WAR_bat":  float(row.get(war_key_bat) or 0),
              "fg_wRC_plus": float(row.get("wRC+") or 0)}
             for row in rows
             if row.get("xMLBAMID")
         ])
-        print(f"  FG actuals (bat): {len(bat_df)} rows")
+        print(f"  FG actuals (bat): {len(bat_df)} rows, WAR sample: {bat_df['fg_WAR_bat'].head(3).tolist()}")
     except Exception as e:
         print(f"  FG actuals bat failed: {e}")
 
@@ -425,16 +433,23 @@ def get_fg_actuals() -> tuple:
         r.raise_for_status()
         payload = r.json()
         rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        if rows:
+            war_keys_p = [k for k in rows[0].keys() if "war" in k.lower()]
+            print(f"  FG actuals pit WAR-like keys in response: {war_keys_p}")
+        war_key_pit = "WAR"
+        if rows and not rows[0].get("WAR") and war_keys_p:
+            war_key_pit = war_keys_p[0]
+            print(f"  FG actuals pit: 'WAR' missing, using {war_key_pit!r}")
         pit_df = pd.DataFrame([
             {"mlbam_id":  int(row["xMLBAMID"]),
-             "fg_WAR_pit": float(row.get("WAR") or 0),
+             "fg_WAR_pit": float(row.get(war_key_pit) or 0),
              "fg_FIP":     float(row.get("FIP") or 0),
              "fg_Kpct":    float(row.get("K%") or 0),
              "fg_BBpct":   float(row.get("BB%") or 0)}
             for row in rows
             if row.get("xMLBAMID")
         ])
-        print(f"  FG actuals (pit): {len(pit_df)} rows")
+        print(f"  FG actuals (pit): {len(pit_df)} rows, WAR sample: {pit_df['fg_WAR_pit'].head(3).tolist()}")
     except Exception as e:
         print(f"  FG actuals pit failed: {e}")
 
@@ -586,15 +601,15 @@ def build_features(year: int) -> pd.DataFrame:
         cur["mlbam_id"] = pd.to_numeric(cur["mlbam_id"], errors="coerce")
         fg_bat["mlbam_id"] = pd.to_numeric(fg_bat["mlbam_id"], errors="coerce")
         cur = cur.merge(fg_bat, on="mlbam_id", how="left")
-        cur["bat_WAR_fg"]   = cur["fg_WAR_bat"].where(cur["fg_WAR_bat"].notna(), cur["bat_WAR_fg"])
-        cur["bat_wRC_plus"] = cur["fg_wRC_plus"].where(cur["fg_wRC_plus"].notna(), cur["bat_wRC_plus"])
+        cur["bat_WAR_fg"]   = cur["fg_WAR_bat"].where(cur["fg_WAR_bat"].notna() & (cur["fg_WAR_bat"] != 0), cur["bat_WAR_fg"])
+        cur["bat_wRC_plus"] = cur["fg_wRC_plus"].where(cur["fg_wRC_plus"].notna() & (cur["fg_wRC_plus"] != 0), cur["bat_wRC_plus"])
         cur.drop(columns=["fg_WAR_bat","fg_wRC_plus"], inplace=True)
 
     if not fg_pit.empty and "mlbam_id" in cur.columns:
         fg_pit["mlbam_id"] = pd.to_numeric(fg_pit["mlbam_id"], errors="coerce")
         cur = cur.merge(fg_pit, on="mlbam_id", how="left")
-        cur["pit_WAR_fg"] = cur["fg_WAR_pit"].where(cur["fg_WAR_pit"].notna(), cur["pit_WAR_fg"])
-        cur["pit_FIP"]    = cur["fg_FIP"].where(cur["fg_FIP"].notna(), cur["pit_FIP"])
+        cur["pit_WAR_fg"] = cur["fg_WAR_pit"].where(cur["fg_WAR_pit"].notna() & (cur["fg_WAR_pit"] != 0), cur["pit_WAR_fg"])
+        cur["pit_FIP"]    = cur["fg_FIP"].where(cur["fg_FIP"].notna() & (cur["fg_FIP"] != 0), cur["pit_FIP"])
         cur["pit_Kpct"]   = cur["fg_Kpct"].where(cur["fg_Kpct"].notna(), cur["pit_Kpct"])
         cur["pit_BBpct"]  = cur["fg_BBpct"].where(cur["fg_BBpct"].notna(), cur["pit_BBpct"])
         cur.drop(columns=["fg_WAR_pit","fg_FIP","fg_Kpct","fg_BBpct"], inplace=True)
