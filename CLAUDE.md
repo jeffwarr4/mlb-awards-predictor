@@ -40,9 +40,10 @@ python src/train_model.py --task MVP_top5   # single task: MVP_top5 | MVP_winner
 #      logreg_top_coeffs.csv, rf_top_importances.csv, recall_at5_*.csv
 #   -> models/metrics_summary.csv (AUC/AP/F1/Recall@5/Top1HitRate across all tasks)
 
-# 4a. Pull current-season FanGraphs actuals (team-by-team, bypasses the 30-row leaderboard cap)
+# 4a. Pull current-season FanGraphs actuals (one request per stat type)
 python src/pull_fg_current.py
 python src/pull_fg_current.py --year 2025 --force
+python src/pull_fg_current.py --probe          # diagnose 403s: prints a client/header matrix
 #   -> data/raw/fg_exports/fg_bat_{year}.csv, fg_pit_{year}.csv
 
 # 4b. Score the live season and write prediction CSVs
@@ -103,9 +104,29 @@ models, not a bare `git add models/` — the gitignore rule will reject new untr
 no-op (not an error) if that sibling repo isn't on the Python path.
 
 **Weekly automation** (`.github/workflows/weekly_predict.yml`): runs every Monday 13:00 UTC during the season,
-calls `pull_fg_current.py --force` then `predict_awards.py`, and commits updated `predictions/` CSVs back to
-the repo as `github-actions[bot]` with `[skip ci]`. Pulls FanGraphs team-by-team with a 10s delay between teams
-(~10 min total) specifically to avoid Cloudflare IP blocks — don't tighten that delay.
+calls `pull_fg_current.py --force` then `predict_awards.py`, and commits updated `predictions/` CSVs **and the
+refreshed `data/raw/fg_exports/` CSVs** back to the repo as `github-actions[bot]` with `[skip ci]`. The FG pull
+step is `continue-on-error` so a FanGraphs outage still yields predictions from the committed CSVs, but a final
+step then fails the run so it can't pass unnoticed. `run_and_push.ps1` does the same refresh locally and is kept
+as a manual backup only — it is not scheduled.
+
+**FanGraphs 403s are self-inflicted — do not "fix" them by adding browser headers.** This repo spent a long time
+believing Cloudflare blocked GitHub runner IPs and that the leaderboard endpoint had a 30-row cap requiring a
+30-team crawl. Both were wrong:
+- The 30-row cap was a paging bug. The API ignores `page="1_100"`; it takes `pageitems` + `pagenum`. One request
+  returns the full leaderboard (~1350 batters / ~780 pitchers at `qual=0`).
+- The 403s came from this repo sending a hardcoded `Chrome/124` `User-Agent`. A Python client claiming to be a
+  browser is a *stronger* bot signal than one that doesn't. Plain `requests` with **default headers** returns 200 —
+  no login, no cookies, no TLS impersonation, from any IP.
+
+`pull_fg_current.py --probe` prints the full client/header matrix and shows this directly. `_FG_HEADERS` is kept
+in that file **only** as a documented example of what not to send. `curl_cffi` is an optional fallback in
+`make_session()`, not a requirement.
+
+**Pitcher `K%` is a rate, not `K/9`.** `merge_fangraphs.py` trains `pit_Kpct` on FanGraphs `K%` (~0.21). The
+manual dashboard export carries only `K/9` (~10.5), and `load_fg_exports()` picks whichever of `K%`/`K/9` appears
+*first* in the CSV — so an export lacking `K%` silently fed a feature ~37x its trained scale into the Cy Young
+models. `pull_fg_current.py` emits `K%`/`BB%` ahead of `K/9`/`BB/9` for this reason; keep that column order.
 
 **Prediction output convention** in `predictions/<year>/`: `_latest.csv` per league/award (for Google Sheets
 import), a timestamped archive copy (only the 4 most recent are kept, older ones auto-pruned), `top5_flat_*.csv`
