@@ -4,4 +4,8 @@ scikit-learn>=1.3
 joblib>=1.3
 pybaseball>=2.2
 requests>=2.31
+# OPTIONAL fallback only. Plain `requests` with default headers works against
+# FanGraphs; curl_cffi is tried by make_session() solely as insurance if they
+# tighten bot rules later. Safe to omit.
+curl_cffi>=0.7
 anthropic>=0.40

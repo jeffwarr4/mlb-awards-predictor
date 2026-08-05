@@ -7,10 +7,11 @@
 #   1. Sets up Python + dependencies
 #   2. Checks out stinger-assets (headshots + logos for graphics)
 #   3. Downloads free font alternatives (Oswald / Barlow) for rendering
-#   4. Pulls FanGraphs actuals (WAR, wRC+, FIP) via team-by-team API
+#   4. Pulls FanGraphs actuals (WAR, wRC+, FIP) — one request per stat type
 #   5. Runs src/predict_awards.py  → predictions/, graphics/, captions
-#   6. Commits updated predictions back to the repo
+#   6. Commits updated predictions AND refreshed fg_exports back to the repo
 #   7. Uploads CSVs + PNGs as workflow artifacts
+#   8. Fails the run if the FanGraphs pull failed, so it can't go unnoticed
 #
 # Secrets required (set in repo Settings → Secrets → Actions):
 #   ANTHROPIC_API_KEY  — enables chip/why and social caption generation
@@ -91,14 +92,33 @@ jobs:
           EOF
 
       # ── 6. Pull FanGraphs current stats ──────────────────────
-      # Tries team-by-team scrape first; overwrites the committed fg_exports
-      # CSVs if successful. If Cloudflare blocks it, the committed CSVs
-      # remain as fallback — predict_awards.py uses whatever is freshest.
-      # The user refreshes and commits fg_exports locally when IPs allow.
+      # One request per stat type against the public leaderboard API.
+      #
+      # This used to be expected to fail on CI ("Cloudflare blocks runner
+      # IPs") and the committed fg_exports CSVs were the real data source,
+      # refreshed by hand from a local machine. That diagnosis was wrong:
+      # the 403s came from this repo's own spoofed Chrome User-Agent, not
+      # from the runner's IP. With no custom headers the endpoint returns
+      # 200. See src/pull_fg_current.py --probe.
+      #
+      # continue-on-error so a genuine outage still produces predictions
+      # from the committed CSVs; the Report step below fails the run
+      # afterwards so the failure is visible rather than silently swallowed.
       - name: Pull FanGraphs actuals
-        run: python src/pull_fg_current.py --force || echo "FG scrape blocked — using committed fg_exports as fallback"
+        id: fgpull
+        continue-on-error: true
+        run: python src/pull_fg_current.py --force
         env:
           PYTHONPATH: ${{ github.workspace }}
+
+      - name: Report FanGraphs pull outcome
+        run: |
+          if [ "${{ steps.fgpull.outcome }}" = "success" ]; then
+            echo "FG pull OK — fg_exports refreshed on the runner."
+          else
+            echo "::warning::FanGraphs pull failed — falling back to the committed fg_exports CSVs."
+            echo "Run 'python src/pull_fg_current.py --probe' to diagnose."
+          fi
 
       # ── 8. Run prediction script ──────────────────────────────
       - name: Run weekly prediction
@@ -134,10 +154,25 @@ jobs:
           git add predictions/
           git add -f predictions/**/.prev_top10_*.csv 2>/dev/null || true
 
+          # Also commit the refreshed FanGraphs exports when the pull worked.
+          # Keeps the committed fallback warm for any run where FanGraphs is
+          # genuinely down, and removes the need to upload them by hand.
+          if [ "${{ steps.fgpull.outcome }}" = "success" ]; then
+            git add data/raw/fg_exports/fg_bat_*.csv data/raw/fg_exports/fg_pit_*.csv
+          fi
+
           if git diff --staged --quiet; then
-            echo "No prediction changes to commit."
+            echo "No changes to commit."
           else
             TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
             git commit -m "chore: weekly predictions update ${TIMESTAMP} [skip ci]"
             git push
           fi
+
+      # ── 10. Surface a failed FanGraphs pull ───────────────────
+      # Runs last so predictions are still produced and committed above.
+      - name: Fail run if FanGraphs pull failed
+        if: steps.fgpull.outcome == 'failure'
+        run: |
+          echo "FanGraphs pull failed — predictions were generated from stale committed CSVs."
+          exit 1
