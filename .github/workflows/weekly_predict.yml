@@ -90,20 +90,13 @@ jobs:
             print("All 4 fonts present ✓")
           EOF
 
-      # ── 6. Clear stale committed FG exports ──────────────────
-      # The fg_exports CSVs are committed to the repo for manual-export
-      # workflows, but CI must use fresh authenticated data each run.
-      # Deleting them here forces predict_awards.py past the CSV-priority
-      # check and into the authenticated FanGraphs actuals path.
-      - name: Clear stale FG exports
-        run: rm -f data/raw/fg_exports/fg_bat_*.csv data/raw/fg_exports/fg_pit_*.csv
-
-      # ── 7. Pull FanGraphs current stats ──────────────────────
-      # Attempts the team-by-team scrape first; if Cloudflare blocks it
-      # the script exits without writing files, and predict_awards.py
-      # falls through to the authenticated actuals path (step 8 creds).
+      # ── 6. Pull FanGraphs current stats ──────────────────────
+      # Tries team-by-team scrape first; overwrites the committed fg_exports
+      # CSVs if successful. If Cloudflare blocks it, the committed CSVs
+      # remain as fallback — predict_awards.py uses whatever is freshest.
+      # The user refreshes and commits fg_exports locally when IPs allow.
       - name: Pull FanGraphs actuals
-        run: python src/pull_fg_current.py --force || echo "FG scrape blocked — will use authenticated actuals in predict step"
+        run: python src/pull_fg_current.py --force || echo "FG scrape blocked — using committed fg_exports as fallback"
         env:
           PYTHONPATH: ${{ github.workspace }}
 
