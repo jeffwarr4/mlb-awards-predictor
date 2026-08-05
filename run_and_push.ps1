@@ -25,7 +25,15 @@
     powershell -ExecutionPolicy Bypass -File "C:\Users\jeffw\OneDrive\DevProj\mlb-awards-predictor\run_and_push.ps1"
 
 .NOTES
-    Task Scheduler setup:
+    MANUAL BACKUP — not scheduled.
+
+    The weekly GitHub Actions workflow now pulls FanGraphs itself and commits
+    the refreshed fg_exports CSVs, so this script is not part of the normal
+    weekly path. Keep it for one-off refreshes: if a run fails and you need
+    fresh CSVs in the repo without waiting for the next scheduled run, this
+    does it in one command from a machine with git credentials.
+
+    If you ever do want it scheduled:
       Program:   powershell.exe
       Arguments: -ExecutionPolicy Bypass -NoProfile -File "C:\Users\jeffw\OneDrive\DevProj\mlb-awards-predictor\run_and_push.ps1"
       Start in:  C:\Users\jeffw\OneDrive\DevProj\mlb-awards-predictor
