@@ -81,6 +81,14 @@ try:
 except ImportError:
     pass
 
+# CI fallback: read credentials from environment variables when config_local.py
+# is not present (GitHub Actions sets FG_USERNAME / FG_APP_PASSWORD from secrets).
+import os as _os
+if not FG_USERNAME:
+    FG_USERNAME = _os.environ.get("FG_USERNAME", "")
+if not FG_APP_PASSWORD:
+    FG_APP_PASSWORD = _os.environ.get("FG_APP_PASSWORD", "")
+
 # Best model per task based on Top1HitRate + Recall@5
 CHAMPION_MODEL = {
     "MVP_top5":   "model_logreg.joblib",      # tied, LR slightly more stable

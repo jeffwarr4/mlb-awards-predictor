@@ -90,23 +90,35 @@ jobs:
             print("All 4 fonts present ✓")
           EOF
 
-      # ── 6. Pull FanGraphs current stats ──────────────────────
-      # Runs before predict_awards.py so load_fg_exports() finds
-      # fresh data. GitHub's rotating IPs avoid Cloudflare bans;
-      # 10s delay between teams keeps requests human-paced (~10 min).
+      # ── 6. Clear stale committed FG exports ──────────────────
+      # The fg_exports CSVs are committed to the repo for manual-export
+      # workflows, but CI must use fresh authenticated data each run.
+      # Deleting them here forces predict_awards.py past the CSV-priority
+      # check and into the authenticated FanGraphs actuals path.
+      - name: Clear stale FG exports
+        run: rm -f data/raw/fg_exports/fg_bat_*.csv data/raw/fg_exports/fg_pit_*.csv
+
+      # ── 7. Pull FanGraphs current stats ──────────────────────
+      # Attempts the team-by-team scrape first; if Cloudflare blocks it
+      # the script exits without writing files, and predict_awards.py
+      # falls through to the authenticated actuals path (step 8 creds).
       - name: Pull FanGraphs actuals
-        run: python src/pull_fg_current.py --force
+        run: python src/pull_fg_current.py --force || echo "FG scrape blocked — will use authenticated actuals in predict step"
         env:
           PYTHONPATH: ${{ github.workspace }}
 
-      # ── 7. Run prediction script ──────────────────────────────
+      # ── 8. Run prediction script ──────────────────────────────
       - name: Run weekly prediction
         run: python src/predict_awards.py
         env:
           PYTHONPATH: ${{ github.workspace }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # stinger-assets checked out at workspace root/stinger-assets
           STINGER_ASSETS_DIR: ${{ github.workspace }}/stinger-assets
+          # FanGraphs credentials — used by get_fg_actuals() when the
+          # team-by-team scrape is blocked by Cloudflare (common on CI).
+          # Add FG_USERNAME and FG_APP_PASSWORD in repo Settings → Secrets → Actions.
+          FG_USERNAME:     ${{ secrets.FG_USERNAME }}
+          FG_APP_PASSWORD: ${{ secrets.FG_APP_PASSWORD }}
 
       # ── 8. Upload predictions as artifacts ────────────────────
       - name: Upload prediction artifacts
