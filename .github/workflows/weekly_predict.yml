@@ -1,6 +1,8 @@
 # .github/workflows/weekly_predict.yml
 # ---------------------------------------------------------------
-# Runs every Monday at 9 AM ET (13:00 UTC) during MLB season.
+# Runs Mondays at about 9:30 AM ET (13:31 UTC), April through September only, so
+# the final regular-season board stays published through the offseason.
+# Run the first week of a new season (late March) by hand.
 # Also supports manual runs via workflow_dispatch.
 #
 # What it does:
@@ -24,8 +26,8 @@ name: Weekly MLB Awards Prediction
 
 on:
   schedule:
-    # Every Monday at 9:00 AM ET (13:00 UTC)
-    - cron: '0 13 * * 1'
+    # Mondays 13:31 UTC, April–September (off the hour; GitHub delays or drops :00 runs)
+    - cron: '31 13 * 4-9 1'
 
   # Manual trigger — run anytime from Actions tab
   workflow_dispatch:

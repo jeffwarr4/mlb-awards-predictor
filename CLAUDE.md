@@ -103,8 +103,9 @@ models, not a bare `git add models/` — the gitignore rule will reject new untr
 `../stinger-assets/` to register newly-seen players for headshot syncing. It's wrapped in try/except, so it's a
 no-op (not an error) if that sibling repo isn't on the Python path.
 
-**Weekly automation** (`.github/workflows/weekly_predict.yml`): runs every Monday 13:00 UTC during the season,
-calls `pull_fg_current.py --force` then `predict_awards.py`, and commits updated `predictions/` CSVs **and the
+**Weekly automation** (`.github/workflows/weekly_predict.yml`): runs Mondays 13:31 UTC, April–September only
+(cron `31 13 * 4-9 1`; trigger late-March and any October regular-season week by hand), so the final board stays
+published all offseason. It calls `pull_fg_current.py --force` then `predict_awards.py`, and commits updated `predictions/` CSVs **and the
 refreshed `data/raw/fg_exports/` CSVs** back to the repo as `github-actions[bot]` with `[skip ci]`. The FG pull
 step is `continue-on-error` so a FanGraphs outage still yields predictions from the committed CSVs, but a final
 step then fails the run so it can't pass unnoticed. `run_and_push.ps1` does the same refresh locally and is kept
