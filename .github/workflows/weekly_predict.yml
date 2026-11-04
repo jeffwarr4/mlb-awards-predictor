@@ -44,7 +44,7 @@ jobs:
     steps:
       # ── 1. Checkout main repo ─────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -54,7 +54,7 @@ jobs:
       # If stinger-assets is private, add a PAT as STINGER_ASSETS_PAT
       # in repo Settings → Secrets → Actions and uncomment the token line.
       - name: Checkout stinger-assets
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: jeffwarr4/stinger-assets
           path: stinger-assets
@@ -62,7 +62,7 @@ jobs:
 
       # ── 3. Set up Python ──────────────────────────────────────
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -137,7 +137,7 @@ jobs:
 
       # ── 8. Upload predictions as artifacts ────────────────────
       - name: Upload prediction artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mlb-predictions-${{ github.run_number }}
           path: |
