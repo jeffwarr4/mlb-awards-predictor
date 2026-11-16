@@ -133,3 +133,12 @@ models. `pull_fg_current.py` emits `K%`/`BB%` ahead of `K/9`/`BB/9` for this rea
 import), a timestamped archive copy (only the 4 most recent are kept, older ones auto-pruned), `top5_flat_*.csv`
 (flattened layout for Canva graphics), and a hidden `.prev_top10_{mvp,cy}.csv` snapshot used solely to compute
 the `↑`/`↓`/`NEW` rank-movement column on the next run — don't delete it between runs or movement tracking resets.
+
+**Weekly and final boards (`scripts/snapshot_board.py`, the same file in all four awards repos).** The
+workflow's "Keep this week's board" step, just before the commit, copies each `top10_{al,nl}_{mvp,cy}_latest.csv`
+to `top10_<lg>_<award>_YYYY-MM-DD.csv` (the run date: MLB boards have no week column), which is never pruned (the
+4-copy limit only prunes the timestamped run files). A same-day rerun overwrites that copy. After the season's last
+regular-season board, run `python scripts/snapshot_board.py --final` once and commit: it writes
+`top10_<lg>_<award>_final.csv`, which the website's season archive pages read. The 2026 finals were written on
+2026-11-15 from the Oct 28 final regular-season board. Don't edit or delete the weekly or final files; they're the
+season history.
