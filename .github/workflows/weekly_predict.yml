@@ -147,6 +147,10 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
+      # One copy of each board per week, kept for good (the timestamped run files are pruned).
+      - name: Keep this week's board
+        run: python scripts/snapshot_board.py
+
       # ── 9. Commit updated predictions back to repo ────────────
       - name: Commit updated predictions
         run: |
