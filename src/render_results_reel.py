@@ -17,7 +17,8 @@ Outputs (predictions/{season}/reel/)
   results_reel.mp4 (gitignored), results_script.txt, results_meta.json
 
 Ported from nfl-awards-predictor/src/publish/render_reel.py (same look, fonts, safe zones: everything important
-inside x 120-960, y 250-1520). The model ranks hitters for MVP, so a pitcher's MVP votes can't be "missed".
+inside x 120-960, y 250-1520). Pitchers only count as MVP misses if they were on the final MVP board; in 2026
+none were, because the live MVP pool filter shut pitchers out by mistake (tracked as an issue, fix before 2027).
 """
 
 from __future__ import annotations
