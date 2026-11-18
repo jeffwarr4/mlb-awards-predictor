@@ -9,3 +9,4 @@ requests>=2.31
 # tighten bot rules later. Safe to omit.
 curl_cffi>=0.7
 anthropic>=0.40
+imageio-ffmpeg>=0.5  # bundled ffmpeg (H.264) for src/render_results_reel.py
