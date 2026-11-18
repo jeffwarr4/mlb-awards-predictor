@@ -12,6 +12,7 @@ FG App Password.txt
 data/*
 !data/raw/
 data/raw/*
+!data/raw/award_votes_*.csv
 !data/raw/fg_exports/
 
 # Model binaries — large files, not tracked
@@ -20,3 +21,7 @@ models/
 # Prediction archives and prev-run snapshots (keep _latest.csv and flat CSVs)
 predictions/**/*_2[0-9][0-9][0-9][0-9]_*.csv
 predictions/**/.prev_*.csv
+
+# Reels: the MP4 goes to the reel-latest release, not git; scene frames are a local check
+predictions/*/reel/*.mp4
+predictions/*/reel/frames*/

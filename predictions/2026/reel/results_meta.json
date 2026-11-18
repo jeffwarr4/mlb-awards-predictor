@@ -1,0 +1,79 @@
+{
+  "season": 2026,
+  "hook": "Our model went 4 for 4",
+  "results": [
+    {
+      "award": "al_cy",
+      "label": "AL CY YOUNG",
+      "kind": "cy",
+      "winner": "Cam Schlittler",
+      "team": "NYY",
+      "key": "cam_schlittler_nyy",
+      "first_place": 30,
+      "ballots": 30,
+      "model_rank": 1,
+      "top5_hits": 4,
+      "top5_total": 5,
+      "voters": 9,
+      "source": "https://bbwaa.com/26-al-cy/"
+    },
+    {
+      "award": "nl_cy",
+      "label": "NL CY YOUNG",
+      "kind": "cy",
+      "winner": "Jacob Misiorowski",
+      "team": "MIL",
+      "key": "jacob_misiorowski_mil",
+      "first_place": 30,
+      "ballots": 30,
+      "model_rank": 1,
+      "top5_hits": 4,
+      "top5_total": 5,
+      "voters": 7,
+      "source": "https://bbwaa.com/26-nl-cy/"
+    },
+    {
+      "award": "al_mvp",
+      "label": "AL MVP",
+      "kind": "mvp",
+      "winner": "Yordan Alvarez",
+      "team": "HOU",
+      "key": "yordan_alvarez_hou",
+      "first_place": 30,
+      "ballots": 30,
+      "model_rank": 1,
+      "top5_hits": 3,
+      "top5_total": 5,
+      "voters": 21,
+      "source": "https://bbwaa.com/26-al-mvp/"
+    },
+    {
+      "award": "nl_mvp",
+      "label": "NL MVP",
+      "kind": "mvp",
+      "winner": "Pete Crow-Armstrong",
+      "team": "CHC",
+      "key": "pete_crow_armstrong_chc",
+      "first_place": 30,
+      "ballots": 30,
+      "model_rank": 1,
+      "top5_hits": 3,
+      "top5_total": 5,
+      "voters": 27,
+      "source": "https://bbwaa.com/26-nl-mvp/"
+    }
+  ],
+  "biggest_miss": {
+    "name": "Jackson Chourio",
+    "team": "MIL",
+    "key": "jackson_chourio_mil",
+    "model": 4,
+    "place": 23,
+    "award": "NL MVP",
+    "actual": 23
+  },
+  "warnings": [],
+  "video": "results_reel.mp4",
+  "release_tag": "reel-latest",
+  "release_asset": "mlb_results_reel_2026.mp4"
+}

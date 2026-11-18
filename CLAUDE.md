@@ -134,6 +134,17 @@ import), a timestamped archive copy (only the 4 most recent are kept, older ones
 (flattened layout for Canva graphics), and a hidden `.prev_top10_{mvp,cy}.csv` snapshot used solely to compute
 the `↑`/`↓`/`NEW` rank-movement column on the next run — don't delete it between runs or movement tracking resets.
 
+**Awards results reel (`src/render_results_reel.py --season YYYY [--frames-only]`).** After the BBWAA announces the
+awards, compares each `top10_<lg>_<award>_final.csv` with the actual vote in `data/raw/award_votes_YYYY.csv` (one row
+per vote-getter: award, place, player_name, team, points, first_place_votes, source_url; copy it from the four
+bbwaa.com results pages, e.g. https://bbwaa.com/26-al-mvp/). Renders a silent 1080×1920 MP4 Jeff voices: one scene
+per award (our rank for the winner, first-place votes, CALLED IT / MISSED), a top-5 overlap scorecard with the
+biggest miss (computed), and the CTA. The hook and the hand-written script live in
+`predictions/YYYY/reel/results_story.json`; the script is checked for length, no %/odds language and the closing
+URL. Outputs `results_script.txt` / `results_meta.json` (committed) and `results_reel.mp4` (gitignored; upload it
+to the repo's `reel-latest` release). Ported from nfl-awards-predictor's weekly reel; the other sports get the same
+reel at their season's end. 2026: the model's No. 1 won all four awards, each unanimously.
+
 **Weekly and final boards (`scripts/snapshot_board.py`, the same file in all four awards repos).** The
 workflow's "Keep this week's board" step, just before the commit, copies each `top10_{al,nl}_{mvp,cy}_latest.csv`
 to `top10_<lg>_<award>_YYYY-MM-DD.csv` (the run date: MLB boards have no week column), which is never pruned (the
